@@ -4,25 +4,23 @@ How the EV-Go JIRA project is set up, how the backlog is imported from [jira-imp
 
 ## 1. Create the project
 
-1. In Jira Cloud: **Projects → Create project → Software development → Scrum**.
-2. Choose **Team-managed** (the project type EV-Go uses). In a team-managed project, epics are linked to their children through the **Parent** field, and story points live in **Story point estimate**. §4 shows how the import handles both.
-3. Name: **EV-Go**. Key: **EVG**.
-4. **Don't create any issues by hand before the import.** Keys are assigned in CSV row order, so an empty project gives exactly EVG-1 … EVG-54.
-
-> A company-managed project works too. In that case, map `Epic Name` → Epic Name, `Epic Link` → Epic Link and `Story Points` → Story Points in §4, and skip step 6 there.
+1. In Jira Cloud: **Create → Space → Software development → Scrum → Use template**.
+2. Choose **Company-managed** as the space type.
+3. Name: **EV-Go**. Key: **EVG**. Set the key explicitly, because Jira suggests one based on the name.
+4. **Create a new, empty space for the import.** Jira never reuses issue numbers, so any issue created earlier (even one that was deleted) shifts every key. An empty space gives exactly EVG-1 … EVG-54.
 
 ## 2. Board columns
 
-In a team-managed project, each board column is a status. Open **Board → ⋯ → Manage columns** (or click **+** next to the last column):
+Open **Board → ⋯ → Board settings → Columns**. The Scrum template uses the simplified workflow, so you can add statuses straight from this screen.
 
-| Column / status | Meaning |
-|---|---|
-| To Do | Committed or backlog, not started |
-| In Progress | The first commit for the item has started |
-| In Review | Code or docs done; another member checks it against the acceptance criteria / DoD |
-| Done | Meets the Definition of Done and was accepted by the PO in the review |
+| Column | Status | Meaning |
+|---|---|---|
+| To Do | To Do | Committed or backlog, not started |
+| In Progress | In Progress | The first commit for the item has started |
+| In Review | In Review *(add)* | Code or docs done; another member checks it against the acceptance criteria / DoD |
+| Done | Done | Meets the Definition of Done and was accepted by the PO in the review |
 
-Add **In Review** between In Progress and Done. Make sure **Done** is still the column marked as the done status (the ✓ on the column).
+Click **Add status**, name it **In Review** (category *In Progress*), and drag its column between In Progress and Done.
 
 ## 3. Create the sprints (before importing)
 
@@ -42,16 +40,16 @@ Only start **EVG Sprint 1**, after the import. The others stay as future sprints
 1. Open **⚙ Settings → System → External system import → CSV**. Without Jira admin rights, use **Filters → View all issues → ⋯ → Import issues from CSV** instead.
 2. Upload `docs/agile/jira-import.csv`. Encoding UTF-8, delimiter `,`.
 3. Import into project **EV-Go (EVG)**.
-4. Map the fields (team-managed):
+4. Map the fields:
 
 | CSV column | Jira field |
 |---|---|
 | Issue Type | Issue Type |
 | Summary | Summary |
 | Description | Description |
-| Epic Name | *Don't map.* An epic's name is its Summary in team-managed projects |
-| Epic Link | *Don't map.* Set as Parent in step 6 |
-| Story Points | **Story point estimate** |
+| Epic Name | Epic Name, if the field is offered. Otherwise *don't map*: the epic's Summary already carries the name |
+| Epic Link | Epic Link, if offered (matched by Epic Name). Otherwise *don't map*, and set Parent in step 6 |
+| Story Points | Story Points (shown as **Story point estimate** on newer Jira Cloud sites) |
 | Priority | Priority (values: Highest / High / Medium) |
 | Sprint | Sprint |
 | Labels | Labels (space-separated, e.g. `sprint-2 moscow-must fullstack`) |
@@ -62,7 +60,7 @@ Only start **EVG Sprint 1**, after the import. The others stay as future sprints
    - The sprint totals in the backlog view are 16, 35, 40 and 23 SP.
    - **If the Sprint column wasn't offered or issues landed in the Backlog:** for each sprint, search `project = EVG AND labels = sprint-1` (then `sprint-2` …) → **select all → Bulk change → Edit → Sprint** → choose *EVG Sprint 1* (and so on). You can also drag them in the backlog view.
 
-6. **Link stories and tasks to their epics.** For each row below, search with JQL `key in (…)` → select all → **Bulk change → Edit issues → Parent** → choose the epic. In the backlog, you can also select the issues and use **⋯ → Parent**.
+6. **Check the epic links.** Open the **Epics** panel in the backlog. If each epic shows its issues, skip this step. If the epics are empty (Jira Cloud has replaced Epic Link with **Parent**, so the import may ignore it), link the children in bulk: for each row below, search with JQL `key in (…)` → select all → **Bulk change → Edit issues → Parent** → choose the epic.
 
 | Epic | Children |
 |---|---|
