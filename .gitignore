@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment files (commit only .env.example)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data (uploaded images, generated invoices)
+uploads/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
