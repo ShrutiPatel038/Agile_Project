@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+# Frontend lint+build job added in Commit 12 (frontend scaffold).
+# Docker image build job added in Sprint 4 (Dockerfiles commit).
+
 jobs:
   backend:
     name: Backend lint
@@ -33,53 +36,3 @@ jobs:
 
       - name: Lint
         run: npm run lint
-
-  frontend:
-    name: Frontend lint + build
-    runs-on: ubuntu-latest
-    # Only runs once the frontend scaffold exists (added in Commit 12)
-    if: hashFiles('frontend/package.json') != ''
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Read Node version
-        id: nvmrc
-        run: echo "NODE_VERSION=$(cat ../.nvmrc)" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.nvmrc.outputs.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-
-  docker:
-    name: Docker image build
-    runs-on: ubuntu-latest
-    needs: [backend, frontend]
-    # Only runs once Dockerfiles exist (added in Sprint 4)
-    if: |
-      hashFiles('backend/Dockerfile') != '' &&
-      hashFiles('frontend/Dockerfile') != ''
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build backend image
-        run: docker build -t ev-go-backend:ci ./backend
-
-      - name: Build frontend image
-        run: docker build -t ev-go-frontend:ci ./frontend
