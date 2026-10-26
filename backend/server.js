@@ -5,6 +5,11 @@ import cors from 'cors';
 
 dotenv.config();
 
+import logger, { morganMiddleware } from './utils/logger.js';
+import connectDB from './config/db.js';
+
+connectDB();
+
 const app = express();
 
 const clientURL = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -26,6 +31,7 @@ app.use(
       if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
         cb(null, true);
       } else {
+        logger.warn('CORS blocked request', { origin });
         cb(new Error(`CORS blocked: ${origin}`));
       }
     },
@@ -34,6 +40,7 @@ app.use(
   })
 );
 
+app.use(morganMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -42,9 +49,15 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+// Global error handler
+app.use((err, _req, res, _next) => {
+  logger.error('Unhandled error', { message: err.message, stack: err.stack });
+  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`, { env: process.env.NODE_ENV });
 });
 
 export default app;
