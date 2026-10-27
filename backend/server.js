@@ -9,6 +9,7 @@ import logger, { morganMiddleware } from './utils/logger.js';
 import connectDB from './config/db.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/authRoutes.js';
+import publicRoutes from './routes/publicRoutes.js';
 
 connectDB();
 
@@ -53,6 +54,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/public', publicRoutes);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
