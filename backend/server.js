@@ -7,6 +7,8 @@ dotenv.config();
 
 import logger, { morganMiddleware } from './utils/logger.js';
 import connectDB from './config/db.js';
+import { generalLimiter } from './middleware/rateLimiter.js';
+import authRoutes from './routes/authRoutes.js';
 
 connectDB();
 
@@ -41,6 +43,7 @@ app.use(
 );
 
 app.use(morganMiddleware);
+app.use(generalLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -48,6 +51,8 @@ app.use(cookieParser());
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
+
+app.use('/api/auth', authRoutes);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
