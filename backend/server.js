@@ -13,6 +13,9 @@ import publicRoutes from './routes/publicRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import stationMasterRoutes from './routes/stationMasterRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import refundRoutes from './routes/refundRoutes.js';
+import { handlePaymentWebhook } from './controllers/paymentController.js';
 
 connectDB();
 
@@ -46,6 +49,9 @@ app.use(
   })
 );
 
+// Webhook must receive raw body for Razorpay HMAC verification — mount before express.json()
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handlePaymentWebhook);
+
 app.use(morganMiddleware);
 app.use(generalLimiter);
 app.use(express.json());
@@ -61,6 +67,8 @@ app.use('/api/public', publicRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/station-master', stationMasterRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/refunds', refundRoutes);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
