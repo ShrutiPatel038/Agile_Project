@@ -11,6 +11,7 @@ import { generalLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/authRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js';
 
 connectDB();
 
@@ -57,6 +58,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
