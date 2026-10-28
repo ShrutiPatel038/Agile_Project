@@ -4,6 +4,7 @@ import AdminRoute from './components/AdminRoute.jsx';
 import StationMasterRoute from './components/StationMasterRoute.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import VehiclesPage from './pages/VehiclesPage.jsx';
 
 // Placeholder pages — replaced as each sprint adds real implementations
 const ComingSoon = ({ label }) => (
@@ -20,7 +21,7 @@ function App() {
           <Route path="/" element={<ComingSoon label="Home" />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/vehicles" element={<ComingSoon label="Vehicles" />} />
+          <Route path="/vehicles" element={<VehiclesPage />} />
           <Route element={<UserRoute />}>
             <Route path="/profile" element={<ComingSoon label="Profile" />} />
             <Route path="/analytics" element={<ComingSoon label="Analytics" />} />
