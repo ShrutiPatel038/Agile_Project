@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
+import stationMasterRoutes from './routes/stationMasterRoutes.js';
 
 connectDB();
 
@@ -59,6 +60,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/station-master', stationMasterRoutes);
 
 // Global error handler
 app.use((err, _req, res, _next) => {
