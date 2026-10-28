@@ -1,13 +1,18 @@
+import http from 'http';
 import express from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'ioredis';
 
 dotenv.config();
 
 import logger, { morganMiddleware } from './utils/logger.js';
 import connectDB from './config/db.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
+import { socketAuthMiddleware, validateRoomAccess } from './middleware/socketAuth.js';
 import authRoutes from './routes/authRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
@@ -20,6 +25,7 @@ import { handlePaymentWebhook } from './controllers/paymentController.js';
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
 
 const clientURL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const localhostOrigins = [
@@ -58,6 +64,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Inject Socket.IO instance into requests
+app.use((req, _res, next) => { req.io = global.io; next(); });
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
@@ -76,8 +85,56 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
 });
 
+// Socket.IO setup
+const io = new Server(server, {
+  cors: { origin: allowedOrigins, credentials: true },
+  transports: ['websocket', 'polling'],
+});
+global.io = io;
+
+// Redis adapter for multi-instance deployments
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+try {
+  const pubClient = createClient(redisUrl);
+  const subClient = pubClient.duplicate();
+  await Promise.all([pubClient.connect(), subClient.connect()]);
+  io.adapter(createAdapter(pubClient, subClient));
+  logger.info('Socket.IO Redis adapter connected');
+} catch (err) {
+  logger.warn('Socket.IO Redis adapter unavailable, running in-memory', { message: err.message });
+}
+
+io.use(socketAuthMiddleware);
+
+io.on('connection', (socket) => {
+  logger.debug('Socket connected', { socketId: socket.id, userId: socket.userId });
+
+  // Auto-join personal room
+  socket.join(socket.userId);
+
+  socket.on('joinAdminRooms', (user) => {
+    if (user?.role === 'super-admin') socket.join('super_admin_room');
+    if ((user?.role === 'station-master' || user?.role === 'super-admin') && user?.managedStation) {
+      socket.join(`station_${user.managedStation}`);
+    }
+    if (user?.role === 'station-master' || user?.role === 'super-admin') socket.join('support_staff');
+  });
+
+  socket.on('joinRoom', (roomName) => {
+    if (validateRoomAccess(socket, roomName)) {
+      socket.join(roomName);
+    } else {
+      socket.emit('error', { message: 'Access denied to room' });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    logger.debug('Socket disconnected', { socketId: socket.id });
+  });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`, { env: process.env.NODE_ENV });
 });
 
