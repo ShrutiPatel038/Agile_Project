@@ -2,7 +2,8 @@ import Station from '../models/Station.js';
 import Vehicle from '../models/Vehicle.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
-import { createNotificationUtil } from '../utils/notificationUtil.js';
+import { createNotificationUtil } from '../controllers/notificationController.js';
+import SupportTicket from '../models/SupportTicket.js';
 import { cacheService } from '../services/cacheService.js';
 import logger from '../utils/logger.js';
 import multer from 'multer';
@@ -370,5 +371,52 @@ export const removeStationMaster = async (req, res) => {
   }
 };
 
-// Stub — full implementation added in Commit 28 (EVG-47)
-export const calculateAndCacheSystemAnalytics = async () => {};
+export const calculateAndCacheSystemAnalytics = async () => {
+  const cacheKey = 'super_admin_analytics';
+
+  const [revenueStats, totalVehicles, activeRentals, loyaltyDistribution, topStations, monthlyRevenue, ticketCounts] = await Promise.all([
+    Booking.aggregate([{ $match: { paymentStatus: 'completed' } }, { $group: { _id: null, totalRevenue: { $sum: '$totalCost' }, averageCost: { $avg: '$totalCost' }, totalBookings: { $sum: 1 } } }]),
+    Vehicle.countDocuments({}),
+    Booking.countDocuments({ status: 'active' }),
+    User.aggregate([{ $group: { _id: '$loyaltyTier', count: { $sum: 1 } } }]),
+    Booking.aggregate([{ $match: { paymentStatus: 'completed' } }, { $group: { _id: '$station', revenue: { $sum: '$totalCost' }, bookingsCount: { $sum: 1 } } }, { $sort: { revenue: -1 } }, { $limit: 5 }]),
+    Booking.aggregate([{ $match: { paymentStatus: 'completed' } }, { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, revenue: { $sum: '$totalCost' }, count: { $sum: 1 } } }, { $sort: { '_id.year': 1, '_id.month': 1 } }, { $limit: 12 }]),
+    Promise.all([SupportTicket.countDocuments({}), SupportTicket.countDocuments({ status: { $in: ['resolved', 'closed'] } })]),
+  ]);
+
+  const populatedTopStations = await Station.populate(topStations, { path: '_id', select: 'name address' });
+  const formattedTopStations = populatedTopStations.map(i => ({ stationId: i._id?._id || null, name: i._id?.name || 'Unknown', revenue: i.revenue || 0, bookingsCount: i.bookingsCount || 0 }));
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const formattedMonthly = monthlyRevenue.map(i => ({ label: `${monthNames[i._id.month-1]} ${i._id.year}`, revenue: i.revenue || 0, bookingsCount: i.count || 0 }));
+  const revData = revenueStats[0] || { totalRevenue: 0, averageCost: 0, totalBookings: 0 };
+  const utilizationRate = totalVehicles > 0 ? (activeRentals / totalVehicles) * 100 : 0;
+  const [totalTickets, resolvedTickets] = ticketCounts;
+  const loyaltyMap = { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+  loyaltyDistribution.forEach(t => { if (t._id) loyaltyMap[t._id] = t.count; });
+
+  const analytics = {
+    financials: { totalRevenue: revData.totalRevenue || 0, averageRevenuePerBooking: Math.round((revData.averageCost || 0) * 100) / 100, totalBookings: revData.totalBookings || 0 },
+    fleet: { totalVehicles, activeRentals, utilizationRate: Math.round(utilizationRate * 10) / 10 },
+    loyaltyTiers: loyaltyMap,
+    topStations: formattedTopStations,
+    monthlyRevenue: formattedMonthly,
+    support: { totalTickets, resolvedTickets, resolutionRate: totalTickets > 0 ? Math.round((resolvedTickets / totalTickets) * 100 * 10) / 10 : 100 },
+    calculatedAt: new Date(),
+  };
+
+  await cacheService.set(cacheKey, analytics, 43200);
+  return analytics;
+};
+
+export const getSystemAnalytics = async (req, res) => {
+  try {
+    const cacheKey = 'super_admin_analytics';
+    const cached = await cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+    const analytics = await calculateAndCacheSystemAnalytics();
+    res.json(analytics);
+  } catch (error) {
+    logger.error('Error fetching system analytics', { message: error.message });
+    res.status(500).json({ message: 'Server Error loading analytics' });
+  }
+};

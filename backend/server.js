@@ -20,6 +20,13 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import stationMasterRoutes from './routes/stationMasterRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import refundRoutes from './routes/refundRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import loyaltyRoutes from './routes/loyaltyRoutes.js';
+import supportRoutes from './routes/supportRoutes.js';
+import reviewRoutes from './routes/reviewRoutes.js';
+import favoriteRoutes from './routes/favoriteRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
+import otpRoutes from './routes/otpRoutes.js';
 import { handlePaymentWebhook } from './controllers/paymentController.js';
 import { startEmailWorker } from './jobs/emailWorker.js';
 import { startPaymentTimeoutWorker } from './jobs/paymentTimeoutWorker.js';
@@ -82,6 +89,13 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/station-master', stationMasterRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/refunds', refundRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/otp', otpRoutes);
 
 // Global error handler
 app.use((err, _req, res, _next) => {

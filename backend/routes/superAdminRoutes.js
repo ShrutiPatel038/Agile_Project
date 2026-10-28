@@ -15,6 +15,7 @@ import {
   updateStationMaster,
   removeStationMaster,
   upload,
+  getSystemAnalytics,
 } from '../controllers/superAdminController.js';
 
 const router = express.Router();
@@ -39,5 +40,8 @@ router.get('/users/masters', getAllStationMasters);
 router.post('/users/masters', createStationMaster);
 router.put('/users/masters/:id', updateStationMaster);
 router.delete('/users/masters/:userId', removeStationMaster);
+
+// Analytics
+router.get('/analytics', getSystemAnalytics);
 
 export default router;
