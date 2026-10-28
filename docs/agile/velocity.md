@@ -5,7 +5,7 @@ Running record of story points completed each sprint. Updated after every sprint
 | Sprint | Date | Committed SP | Completed SP | Velocity | Carry-over |
 |---|---|---|---|---|---|
 | Sprint 1 | 2026-10-25 (→ 27) | 16 | 16 | **16** | JIRA setup + CI debugging extended into Day 2–3 |
-| Sprint 2 | 2026-10-26 | — | — | — | — |
+| Sprint 2 | 2026-10-27–28 | 35 | 35 | **35** | None — all stories accepted |
 | Sprint 3 | 2026-10-27 | — | — | — | — |
 | Sprint 4 | 2026-10-28 | — | — | — | — |
 
