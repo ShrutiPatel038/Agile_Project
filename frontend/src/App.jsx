@@ -5,6 +5,8 @@ import StationMasterRoute from './components/StationMasterRoute.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import VehiclesPage from './pages/VehiclesPage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
+import StationMasterDashboard from './pages/StationMasterDashboard.jsx';
 
 // Placeholder pages — replaced as each sprint adds real implementations
 const ComingSoon = ({ label }) => (
@@ -23,7 +25,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/vehicles" element={<VehiclesPage />} />
           <Route element={<UserRoute />}>
-            <Route path="/profile" element={<ComingSoon label="Profile" />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/analytics" element={<ComingSoon label="Analytics" />} />
             <Route path="/loyalty" element={<ComingSoon label="Loyalty" />} />
             <Route path="/support" element={<ComingSoon label="Support" />} />
@@ -31,7 +33,7 @@ function App() {
             <Route path="/favorites" element={<ComingSoon label="Favorites" />} />
           </Route>
           <Route element={<StationMasterRoute />}>
-            <Route path="/dashboard" element={<ComingSoon label="Station Master Dashboard" />} />
+            <Route path="/dashboard" element={<StationMasterDashboard />} />
           </Route>
           <Route element={<AdminRoute />}>
             <Route path="/super-admin" element={<ComingSoon label="Super Admin" />} />
