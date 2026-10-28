@@ -21,6 +21,10 @@ import stationMasterRoutes from './routes/stationMasterRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import refundRoutes from './routes/refundRoutes.js';
 import { handlePaymentWebhook } from './controllers/paymentController.js';
+import { startEmailWorker } from './jobs/emailWorker.js';
+import { startPaymentTimeoutWorker } from './jobs/paymentTimeoutWorker.js';
+import { startOvertimeWorker } from './jobs/overtimeWorker.js';
+import { startCronJobs } from './jobs/cronJobs.js';
 
 connectDB();
 
@@ -132,6 +136,12 @@ io.on('connection', (socket) => {
     logger.debug('Socket disconnected', { socketId: socket.id });
   });
 });
+
+// Start background workers and cron jobs after server is set up
+startEmailWorker();
+startPaymentTimeoutWorker();
+startOvertimeWorker();
+startCronJobs();
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

@@ -369,3 +369,6 @@ export const removeStationMaster = async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
+// Stub — full implementation added in Commit 28 (EVG-47)
+export const calculateAndCacheSystemAnalytics = async () => {};
