@@ -1,76 +1,123 @@
-import { Worker } from 'bullmq';
-import Redis from 'ioredis';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import { queueService } from '../services/queueService.js';
 import { createNotificationUtil } from '../controllers/notificationController.js';
 import logger from '../utils/logger.js';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+/**
+ * Processes an overtime billing check for one booking.
+ *
+ * How it works:
+ *  - When a ride goes active, queueService schedules a timer
+ *    to fire exactly when (endTime + gracePeriod) elapses.
+ *  - At that moment this:
+ *      1. Calculates the first overtime charge
+ *      2. Updates the booking total cost
+ *      3. Notifies the user and station master
+ *      4. Re-schedules itself to run again in 1 hour if ride is still active
+ *  - When ride is completed or cancelled, the timer is cancelled via cancelOvertimeJob().
+ */
+export const processOvertimeCheck = async (bookingId) => {
+    const now = new Date();
+    logger.info('Overtime: checking booking', { bookingId });
+
+    // Re-fetch fresh booking state
+    const booking = await Booking.findById(bookingId).populate('user vehicle station');
+
+    if (!booking) {
+        logger.info('Overtime: booking not found, skipping', { bookingId });
+        return;
+    }
+
+    // If ride is no longer active (completed/cancelled) stop processing
+    if (booking.status !== 'active') {
+        logger.info('Overtime: booking no longer active, no further checks', { bookingId, status: booking.status });
+        return;
+    }
+
+    // Calculate how long the ride has been overdue
+    const gracePeriodMs = (booking.overtimeCharges?.gracePeriodMinutes || 15) * 60 * 1000;
+    const endTimeWithGrace = new Date(booking.endTime.getTime() + gracePeriodMs);
+
+    if (now <= endTimeWithGrace) {
+        // Still within grace period (edge case: timer fired slightly early)
+        logger.info('Overtime: still in grace period, skipping charges', { bookingId });
+        return;
+    }
+
+    // Calculate overtime duration
+    const overtimeMs = now.getTime() - endTimeWithGrace.getTime();
+    const overtimeHours = Math.ceil(overtimeMs / (1000 * 60 * 60)); // Round up to nearest hour
+
+    const overtimeRate = booking.overtimeCharges?.overtimeRate ||
+        (booking.vehicle.pricePerHour * 1.5);
+    const overtimeCost = overtimeHours * overtimeRate;
+
+    const previousOvertimeHours = booking.overtimeCharges?.overtimeHours || 0;
+    const previousOvertimeCost = booking.overtimeCharges?.overtimeCost || 0;
+
+    // Recalculate base cost (idempotent - same formula every run)
+    const plannedDurationHours = Math.max(
+        0,
+        (new Date(booking.endTime).getTime() - new Date(booking.startTime).getTime()) / (1000 * 60 * 60)
+    );
+    const plannedBaseCost = (plannedDurationHours * booking.vehicle.pricePerHour) + (booking.oneWayFee || 0);
+
+    // Update overtime fields
+    booking.overtimeCharges.isOvertime = true;
+    booking.overtimeCharges.overtimeHours = overtimeHours;
+    booking.overtimeCharges.overtimeCost = overtimeCost;
+    booking.overtimeCharges.lastCalculatedAt = now;
+    booking.totalCost = plannedBaseCost + overtimeCost;
+    await booking.save();
+
+    const overtimeChanged = previousOvertimeHours !== overtimeHours || previousOvertimeCost !== overtimeCost;
+
+    if (overtimeChanged) {
+        // Notify the user
+        await createNotificationUtil(
+            booking.user._id,
+            'Overtime Charges Applied',
+            `Your ride is ${overtimeHours} hour(s) overdue. ₹${overtimeCost} overtime charges have been added. Please return the vehicle immediately to avoid further charges.`,
+            'reminder',
+            'urgent',
+            {},
+            global.io
+        );
+
+        // Notify station master
+        const stationMaster = await User.findOne({
+            station: booking.station._id,
+            role: 'station-master'
+        });
+
+        if (stationMaster) {
+            await createNotificationUtil(
+                stationMaster._id,
+                'Overdue Ride - Overtime Charges Applied',
+                `${booking.user.name}'s ride with ${booking.vehicle.modelName} is ${overtimeHours}h overdue. ₹${overtimeCost} overtime charges applied.`,
+                'reminder',
+                'high',
+                {},
+                global.io
+            );
+        }
+
+        logger.info('Overtime charge applied', { bookingId, overtimeHours, overtimeCost });
+    }
+
+    // Re-schedule itself to run again in 1 hour to accumulate further overtime.
+    // Ongoing re-checks stop by checking booking.status === 'active' at the top.
+    try {
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+        const nextJobId = `overtime-${bookingId}-rechk-${Date.now()}`;
+        await queueService.scheduleOvertimeRecheckJob(bookingId, nextJobId, ONE_HOUR_MS);
+        logger.info('Overtime re-check scheduled in 1 hour', { bookingId });
+    } catch (rescheduleErr) {
+        logger.warn('Could not re-schedule overtime check', { bookingId, message: rescheduleErr.message });
+    }
+};
 
 export const startOvertimeWorker = () => {
-  let connection;
-  try {
-    connection = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: null,
-      connectTimeout: 2000,
-      retryStrategy: (times) => {
-        if (times > 2) { logger.warn('Redis unavailable for Overtime Worker.'); return null; }
-        return 1000;
-      },
-    });
-
-    connection.on('error', () => {});
-    connection.on('connect', () => {
-      const worker = new Worker('overtime', async (job) => {
-        const { bookingId } = job.data;
-        const now = new Date();
-        const booking = await Booking.findById(bookingId).populate('user vehicle station');
-        if (!booking)                      { logger.info('Overtime job: booking not found', { bookingId }); return; }
-        if (booking.status !== 'active')   { logger.info('Overtime job: booking no longer active', { bookingId, status: booking.status }); return; }
-
-        const gracePeriodMs    = (booking.overtimeCharges?.gracePeriodMinutes || 15) * 60 * 1000;
-        const endTimeWithGrace = new Date(booking.endTime.getTime() + gracePeriodMs);
-        if (now <= endTimeWithGrace) return;
-
-        const overtimeMs    = now.getTime() - endTimeWithGrace.getTime();
-        const overtimeHours = Math.ceil(overtimeMs / (1000 * 60 * 60));
-        const overtimeRate  = booking.overtimeCharges?.overtimeRate || (booking.vehicle.pricePerHour * 1.5);
-        const overtimeCost  = overtimeHours * overtimeRate;
-
-        const prevHours = booking.overtimeCharges?.overtimeHours || 0;
-        const prevCost  = booking.overtimeCharges?.overtimeCost  || 0;
-
-        const plannedHours = Math.max(0, (new Date(booking.endTime) - new Date(booking.startTime)) / (1000 * 60 * 60));
-        const baseCost     = plannedHours * booking.vehicle.pricePerHour + (booking.oneWayFee || 0);
-
-        booking.overtimeCharges.isOvertime       = true;
-        booking.overtimeCharges.overtimeHours    = overtimeHours;
-        booking.overtimeCharges.overtimeCost     = overtimeCost;
-        booking.overtimeCharges.lastCalculatedAt = now;
-        booking.totalCost = baseCost + overtimeCost;
-        await booking.save();
-
-        if (prevHours !== overtimeHours || prevCost !== overtimeCost) {
-          await createNotificationUtil(booking.user._id, 'Overtime Charges Applied', `Your ride is ${overtimeHours} hour(s) overdue. ₹${overtimeCost} overtime charges added.`, 'reminder', 'urgent', {}, global.io);
-          const sm = await User.findOne({ station: booking.station._id, role: 'station-master' });
-          if (sm) await createNotificationUtil(sm._id, 'Overdue Ride', `${booking.user.name}'s ride (${booking.vehicle.modelName}) is ${overtimeHours}h overdue. ₹${overtimeCost} overtime applied.`, 'reminder', 'high', {}, global.io);
-          logger.info('Overtime charges applied', { bookingId, overtimeHours, overtimeCost });
-        }
-
-        // Re-schedule to accumulate further overtime hourly
-        try {
-          await queueService.scheduleOvertimeRecheckJob(bookingId, `overtime-${bookingId}-rechk-${Date.now()}`, 60 * 60 * 1000);
-        } catch (err) {
-          logger.warn('Could not re-schedule overtime recheck', { bookingId, message: err.message });
-        }
-      }, { connection, concurrency: 5 });
-
-      worker.on('completed', (job) => logger.info('Overtime job completed', { jobId: job.id }));
-      worker.on('failed', (job, err) => logger.error('Overtime job failed', { jobId: job?.id, message: err.message }));
-      logger.info('Overtime worker listening to "overtime" queue');
-    });
-  } catch (error) {
-    logger.warn('Failed to init Overtime Worker', { message: error.message });
-  }
+    logger.info('Overtime worker ready (in-process timers)');
 };

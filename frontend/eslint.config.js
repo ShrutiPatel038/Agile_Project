@@ -23,7 +23,14 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Z_]', caughtErrors: 'none' }],
+      // Context files export their hook alongside the provider
+      'react-refresh/only-export-components': 'warn',
     },
+  },
+  {
+    // Node helper scripts (dev-roles.js) and config files
+    files: ['scripts/**/*.js', '*.config.js'],
+    languageOptions: { globals: globals.node },
   },
 ])

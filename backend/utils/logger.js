@@ -12,19 +12,19 @@ const logLevel = process.env.LOG_LEVEL || (isProd ? 'info' : 'debug');
 
 // Ensure logs/ directory exists in production
 if (isProd) {
-  const logsDir = path.join(__dirname, '../../logs');
+  const logsDir = path.join(__dirname, '../logs');
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 }
 
 const logTransports = isProd
   ? [
       new transports.File({
-        filename: path.join(__dirname, '../../logs/error.log'),
+        filename: path.join(__dirname, '../logs/error.log'),
         level: 'error',
         format: format.combine(format.timestamp(), format.json()),
       }),
       new transports.File({
-        filename: path.join(__dirname, '../../logs/app.log'),
+        filename: path.join(__dirname, '../logs/app.log'),
         format: format.combine(format.timestamp(), format.json()),
       }),
     ]

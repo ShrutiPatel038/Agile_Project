@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:user": "vite --port 5173 --strictPort",
+    "dev:master": "vite --port 5174 --strictPort",
+    "dev:admin": "vite --port 5175 --strictPort",
+    "dev:roles": "node scripts/dev-roles.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

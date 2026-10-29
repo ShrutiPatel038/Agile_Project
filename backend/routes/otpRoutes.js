@@ -1,12 +1,12 @@
 import express from 'express';
 import { sendOTP, verifyOTP, checkVerificationStatus } from '../controllers/otpController.js';
-import { protectRoute } from '../middleware/authMiddleware.js';
+import { protectRoute } from '../middleware/protectRoute.js';
+import { otpLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
-router.use(protectRoute);
-router.post('/send', sendOTP);
-router.post('/verify', verifyOTP);
-router.get('/status', checkVerificationStatus);
+router.post('/send', protectRoute, otpLimiter, sendOTP);
+router.post('/verify', protectRoute, verifyOTP);
+router.get('/status', protectRoute, checkVerificationStatus);
 
 export default router;

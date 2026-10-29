@@ -1,12 +1,11 @@
 import express from 'express';
 import { sendMessage, getBookingMessages, getUnreadCount } from '../controllers/messageController.js';
-import { protectRoute } from '../middleware/authMiddleware.js';
+import { protectRoute } from '../middleware/protectRoute.js';
 
 const router = express.Router();
 
-router.use(protectRoute);
-router.post('/', sendMessage);
-router.get('/unread-count', getUnreadCount);
-router.get('/booking/:bookingId', getBookingMessages);
+router.post('/', protectRoute, sendMessage);
+router.get('/booking/:bookingId', protectRoute, getBookingMessages);
+router.get('/unread-count', protectRoute, getUnreadCount);
 
 export default router;
