@@ -14,7 +14,7 @@
 | Action item from Sprint 3 retro | Outcome |
 |---|---|
 | Add raw-body middleware comment to server.js before the webhook route | Done — `server.js` has inline comment explaining the `express.raw()` must precede `express.json()` |
-| Check BullMQ inline fallback path manually before Sprint 4 demo | Done — tested with Redis stopped; bookings still confirmed and emails sent inline |
+| Check the inline email path manually before Sprint 4 demo | Done — bookings confirmed and emails sent inline |
 | Write the architecture diagram before the final review | Done — `docs/architecture.md` with three Mermaid diagrams committed in Sprint 4 |
 
 All three actions confirmed done.
@@ -30,12 +30,12 @@ All three actions confirmed done.
 ## Stop
 
 - **Last-minute README updates** — the README stayed as a skeleton until the final sprint. Next time, keep it current as each feature lands so it is never a one-sprint catch-up.
-- **Deferring Docker healthcheck testing** — the `depends_on: condition: service_healthy` chain was written in Sprint 4 without being tested under failure conditions (e.g. Redis slow to start). Reserve time in the containerisation sprint to simulate failures.
+- **Deferring Docker healthcheck testing** — the `depends_on: condition: service_healthy` chain was written in Sprint 4 without being tested under failure conditions (e.g. MongoDB slow to initialise the replica set). Reserve time in the containerisation sprint to simulate failures.
 
 ## Continue
 
 - **Webhook-before-json ordering** — the pattern of mounting `express.raw()` before `express.json()` for the Razorpay webhook was documented clearly and caused zero bugs during integration. Keep this practice for any new webhook routes.
-- **Inline fallback pattern for Redis-dependent services** — BullMQ and the Socket.IO adapter both fall back gracefully when Redis is unavailable. This meant development worked without Redis running locally. Keep the pattern for any future optional dependencies.
+- **Keeping infrastructure minimal** — cache, job timers and Socket.IO all run in memory, so development works with only Node and MongoDB. Add a shared service only when running several backend instances becomes a real need.
 - **EVG-xx keys in every commit** — JIRA traceability was easy to maintain because the commit template reminded us to include the key. Keep it.
 - **Sprint docs written the same day** — review and retro docs were written on the sprint day itself, so the details (demo steps, feedback, action items) were accurate rather than reconstructed.
 
@@ -57,9 +57,9 @@ All three actions confirmed done.
 
 - **Zero double-booking bugs** — the MongoDB transaction + overlap check held up through every test.
 - **Webhook reliability** — the raw-body middleware pattern worked first time. Idempotent `finalizeSuccessfulPayment` meant re-delivered webhooks caused no duplicate state changes.
-- **Redis fallback** — the cache and queue services degraded gracefully when Redis was unavailable, so no single service failure brought down the whole app.
+- **No extra infrastructure** — the app needs only Node and MongoDB, so there is no separate cache or queue service that can fail.
 - **JIRA traceability** — every commit has an EVG-xx key; sprint reviews have exact endpoint URLs. The project is fully auditable.
-- **Docker Compose single-command startup** — `docker compose up --build` brings up the full stack including a MongoDB replica set. The healthcheck chain (`mongo healthy → redis healthy → backend healthy → frontend starts`) meant the stack was reliable from the first run.
+- **Docker Compose single-command startup** — `docker compose up --build` brings up the full stack including a MongoDB replica set. The healthcheck chain (`mongo healthy → backend healthy → frontend starts`) meant the stack was reliable from the first run.
 
 ### What we would do differently
 

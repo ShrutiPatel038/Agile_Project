@@ -11,7 +11,7 @@
 # 1. Copy env file and fill in Razorpay + Email secrets
 cp backend/.env.example backend/.env
 
-# 2. Build and start all services (mongo, redis, backend, frontend)
+# 2. Build and start all services (mongo, backend, frontend)
 docker compose up --build
 
 # 3. Services available at:
@@ -24,13 +24,16 @@ docker compose up --build
 
 ```
 browser
-  └── frontend (nginx:alpine :80→5173)
-        ├── /api/*      → proxy → backend:5000
-        └── /socket.io/ → proxy → backend:5000 (WebSocket)
-              └── backend (node:20-alpine :5000)
-                    ├── mongo:27017  (replica set rs0)
-                    └── redis:6379
+  ├── frontend (nginx:alpine :80→5173)   serves the React build
+  │     ├── /api/*      → proxy → backend:5000   (for single-origin deployments)
+  │     └── /socket.io/ → proxy → backend:5000   (WebSocket)
+  └── backend (node:20-alpine :5000)     called directly at http://localhost:5000
+        └── mongo:27017  (replica set rs0)
 ```
+
+The frontend is built with `VITE_API_URL=http://localhost:5000`. That value ends up in the browser bundle, so it must be an address the **host browser** can reach. The service name `backend` only resolves inside the Docker network.
+
+The backend needs no cache or queue service: its cache, job timers and Socket.IO rooms are in memory.
 
 ## Individual commands
 
@@ -57,12 +60,11 @@ docker compose down -v
 | Volume | Contents |
 |---|---|
 | `mongo-data` | MongoDB data files |
-| `redis-data` | Redis RDB snapshot |
 | `backend-uploads` | User-uploaded files and generated invoices |
 
 ## Environment variables
 
-All backend env vars are read from `backend/.env` at startup. See `backend/.env.example` for the full list. The Compose file overrides `MONGO_URI` and `REDIS_URL` to point at the internal service names.
+All backend env vars are read from `backend/.env` at startup. See `backend/.env.example` for the full list. The Compose file overrides `MONGO_URI` to point at the internal `mongo` service and sets `NODE_ENV=production` (logs then go to `/app/logs/app.log` and `/app/logs/error.log` inside the container).
 
 ## MongoDB replica set
 
@@ -73,7 +75,6 @@ The `mongo` service uses a single-node replica set (`rs0`). This is required bec
 | Service | Check | Interval |
 |---|---|---|
 | mongo | `rs.status().ok` via mongosh | 10s |
-| redis | `redis-cli ping` | 10s |
 | backend | `GET /health` via wget | 30s |
 | frontend | depends_on backend healthy | — |
 

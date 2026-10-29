@@ -69,7 +69,6 @@ BACKEND_IMAGE=ghcr.io/org/evgo-backend:<last-good-sha> docker compose up -d back
 | Secret | Storage |
 |---|---|
 | `MONGO_URI` | Docker secret / env var in deployment platform |
-| `REDIS_URL` | Docker secret |
 | `JWT_SECRET` | Docker secret (rotate quarterly) |
 | `RAZORPAY_KEY_ID` / `SECRET` | Docker secret (never in image layer) |
 | `RAZORPAY_WEBHOOK_SECRET` | Docker secret |

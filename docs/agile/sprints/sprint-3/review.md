@@ -12,7 +12,7 @@
 
 ## Sprint goal
 
-> **Make the money work and the system live** — integrate Razorpay payments, add Socket.IO real-time updates, wire BullMQ background jobs, and add engagement features (loyalty, reviews, favorites, notifications, OTP).
+> **Make the money work and the system live** — integrate Razorpay payments, add Socket.IO real-time updates, wire background jobs, and add engagement features (loyalty, reviews, favorites, notifications, OTP).
 
 **Outcome: Goal MET.**
 
@@ -26,8 +26,8 @@
 | EVG-38 | Receive refund on cancellation | 5 | ✅ Accepted | Tiered refund policy (>24h = 100%, 12–24h = 75%, 6–12h = 50%, <6h = 25%). |
 | EVG-39 | Security deposit lifecycle | 3 | ✅ Accepted | Held on payment, released on completed booking, deducted on damage. |
 | EVG-40 | Webhook idempotency + unlinked payment recovery | 3 | ✅ Accepted | `express.raw()` preserves body; `finalizeSuccessfulPayment` is idempotent. |
-| EVG-41 | Real-time updates (Socket.IO) | 5 | ✅ Accepted | `global.io` pattern; Redis adapter falls back to in-memory. `SocketProvider` wraps app. |
-| EVG-42 | Email notifications (BullMQ + NodeMailer) | 3 | ✅ Accepted | PDF invoice attached; inline fallback when Redis unavailable. |
+| EVG-41 | Real-time updates (Socket.IO) | 5 | ✅ Accepted | `global.io` pattern; in-memory adapter (single backend instance). `SocketProvider` wraps app. |
+| EVG-42 | Email notifications (NodeMailer + PDF invoice) | 3 | ✅ Accepted | PDF invoice attached; sent inline after payment. |
 | EVG-43 | Payment timeout + overtime background jobs | 5 | ✅ Accepted | Workers cancel bookings and accumulate overtime charges hourly. |
 | EVG-44 | Cron watchdogs | 2 | ✅ Accepted | Cancels expired unpaid bookings every 10 min; warms analytics cache every 3 h. |
 | EVG-45 | Loyalty points system | 3 | ✅ Accepted | Points earned on payment, redeemable at 100:₹100; referral bonus included. |

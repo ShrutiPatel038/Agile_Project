@@ -51,7 +51,7 @@ Sprint 3 velocity: 43 SP in 13.5 dev h → ~3.2 SP/h. Targeting 25–30 SP this 
 - [ ] `frontend/Dockerfile` — multi-stage: Node build → Nginx serve
 - [ ] `frontend/nginx.conf` — SPA fallback, `/api` + `/socket.io` proxy
 - [ ] `backend/.dockerignore`, `frontend/.dockerignore`
-- [ ] `docker-compose.yml` — frontend, backend, mongo (replica set), redis; named volumes; healthchecks
+- [ ] `docker-compose.yml` — frontend, backend, mongo (replica set); named volumes; healthchecks
 - [ ] `docs/devops/docker.md` — run commands
 - [ ] `.github/workflows/ci.yml` — add Docker image build job (needs-backend + needs-frontend)
 

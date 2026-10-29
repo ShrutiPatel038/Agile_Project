@@ -74,7 +74,7 @@ As a Super Admin, I want repeated requests to sensitive endpoints throttled, so 
 As a User, I want to see all EV-Go stations, so that I can choose where to pick up a vehicle.
 
 - **Given** I'm on the home page, **when** it loads, **then** `GET /api/public/stations` returns every station with name and location, and no login is needed.
-- **Given** the list was fetched in the last hour, **when** it is requested again, **then** it is served from the `public:stations` cache (Redis, or the in-memory fallback if Redis is down).
+- **Given** the list was fetched in the last hour, **when** it is requested again, **then** it is served from the in-memory `public:stations` cache (1-hour TTL).
 - **Given** a Super Admin creates or updates a station, **when** stations are next requested, **then** the cache has been invalidated and the change shows.
 
 ### EVG-28 · Browse vehicles available for a time window
@@ -237,7 +237,7 @@ As a Station Master, I want my dashboard to update the moment a booking or payme
   - `booking_confirmed` goes to the user
   - `dashboard_refresh` goes to the station room and `super_admin_room`
   - `notification` goes to the user (reminders, cancellations, overtime)
-- **Given** Redis is reachable, **then** the Redis adapter is used so events reach clients on any instance. Otherwise the in-memory adapter is used and a warning is logged.
+- Socket.IO uses its default in-memory adapter, so all clients must connect to the same backend instance.
 - **Frontend:** SocketContext connects after login, NotificationBell shows unread items, and PushNotifications shows toasts.
 
 ### EVG-41 · Confirmation email with PDF invoice
@@ -245,19 +245,18 @@ As a Station Master, I want my dashboard to update the moment a booking or payme
 
 As a User, I want an email with a PDF invoice when my payment is confirmed, so that I have proof of booking.
 
-- **Given** a payment is finalised, **then** a `booking-confirmation` job is added to the `emails` BullMQ queue (3 attempts, exponential backoff).
-- The email worker (concurrency 2) generates a PDFKit invoice in `uploads/invoices/` and sends it through Nodemailer. The invoice shows the last 6 characters of the booking id, billing details, vehicle, stations, times, base cost, one-way fee, deposit and grand total.
-- **Given** Redis is unavailable, **then** the email is sent inline instead, and the user still receives it.
+- **Given** a payment is finalised for the first time, **then** the confirmation email is sent inline (once; a failure is logged and does not fail the payment).
+- The email generates a PDFKit invoice in `uploads/invoices/` and sends it through Nodemailer. The invoice shows the last 6 characters of the booking id, billing details, vehicle, stations, times, base cost, one-way fee, deposit and grand total.
 
 ### EVG-42 · Auto-cancel unpaid bookings, payment watchdogs
 **Epic** EVG-8 · **Priority** Must · **SP** 3
 
 As a Station Master, I want unpaid bookings released automatically at the deadline, so that vehicles aren't blocked by people who never pay.
 
-- **Given** a booking is created, **then** a delayed `paymentTimeout` job is scheduled for the exact `paymentDeadline`.
-- **Given** payment succeeds first, **then** the job is cancelled.
-- **Given** the job fires and payment is still `pending`, **then** the booking is `cancelled`, the payment `failed`, the vehicle `available`, and the user is notified.
-- A 1-minute cron fallback does the same for any missed deadlines, and sends a "10 minutes left" reminder once per booking.
+- **Given** a booking is created, **then** an in-process timer is scheduled for the exact `paymentDeadline`.
+- **Given** payment succeeds first, **then** the timer is cancelled.
+- **Given** the timer fires and payment is still `pending`, **then** the booking is `cancelled`, the payment `failed`, the vehicle `available`, and the user is notified.
+- A 1-minute cron fallback does the same for any missed deadlines (timers are lost when the backend restarts), and sends a "10 minutes left" reminder once per booking.
 - A 5-minute cron notifies users whose payment has been `processing` for more than 5 minutes. A 10-minute cron logs `unlinked` payments older than 5 minutes for follow-up.
 - Every cron job is skipped, with a log line, while MongoDB is disconnected.
 
@@ -361,7 +360,7 @@ As the team, I want the whole stack to start with one command, the same way on e
 - Backend image: `node:20-alpine`, `npm ci --omit=dev`, runs as a non-root user, with a `HEALTHCHECK` on `/health`.
 - Frontend image: multi-stage. A Node 20 build stage produces the static files, which Nginx serves with SPA fallback. `/api` and `/socket.io` are proxied with WebSocket headers.
 - Both apps have a `.dockerignore`, so no `.env`, `node_modules` or logs end up in an image.
-- `docker compose up --build` starts mongo (single-node replica set `rs0`, so transactions work), redis, backend and frontend on one network, with named volumes `mongo-data`, `redis-data` and `backend-uploads`, `depends_on` healthchecks, and env from `.env`.
+- `docker compose up --build` starts mongo (single-node replica set `rs0`, so transactions work), backend and frontend on one network, with named volumes `mongo-data` and `backend-uploads`, `depends_on` healthchecks, and env from `.env`.
 - **Given** the stack is up, **when** I open `http://localhost:5173`, **then** I can register, browse and create a booking.
 - CI builds both images (without pushing) after the lint and build jobs pass.
 

@@ -61,7 +61,7 @@ Sprint 1 retro action A3: commitment is set conservatively — Sprint 1 ran over
 
 ### EVG-27 + EVG-28 — Stations & vehicles browse (Shruti, ~1 h)
 - [ ] Port `Station` and `Vehicle` models with all indexes
-- [ ] Cache service (Redis + in-memory Map fallback) — `cacheService.get/set/del`
+- [ ] Cache service (in-memory Map with TTL) — `cacheService.get/set/del`
 - [ ] `GET /api/public/stations` — cache-aside, 1 h TTL (`public:stations` key)
 - [ ] `GET /api/public/vehicles?stationId=&startTime=&endTime=` — conflict-aware availability check against Booking model
 

@@ -21,8 +21,8 @@
 
 ## Start
 
-- **Write env.example updates alongside each new feature.** Three new env vars (RAZORPAY keys, EMAIL_USER/PASS, REDIS_URL) were added across Sprint 3 commits but `.env.example` wasn't updated each time. Update it at the start of the commit that introduces the var.
-- **Add a basic health check to queueService** so startup logs show whether BullMQ is using Redis or falling back to inline.
+- **Write env.example updates alongside each new feature.** New env vars (RAZORPAY keys, EMAIL_USER/PASS) were added across Sprint 3 commits but `.env.example` wasn't updated each time. Update it at the start of the commit that introduces the var.
+- **Add a basic health check to queueService** so startup logs show that the job workers are ready.
 
 ## Stop
 
@@ -31,7 +31,7 @@
 
 ## Continue
 
-- **Lazy queueService imports** — the `getQueue()` pattern kept early commits stable when BullMQ wasn't wired. Keep for any future optional dependencies.
+- **Lazy queueService imports** — the `getQueue()` pattern kept early commits stable before the job timers were wired. Keep for any future optional dependencies.
 - **Logger instead of console.** Every controller uses `logger.info/warn/error` — no `console.log` leakage.
 - **Express.raw() webhook guard.** Mounting the webhook before `express.json()` was the right call; HMAC verification works correctly.
 - **Idempotent payment finalization.** `finalizeSuccessfulPayment` is safe to call twice; the webhook and verify endpoint both use it.
@@ -42,6 +42,6 @@
 
 | # | Action | Owner | Done by |
 |---|---|---|---|
-| 1 | Update `.env.example` with all Sprint 3 vars (Razorpay, Email, Redis) | Shruti | Start of Sprint 4 |
-| 2 | Add queueService startup health log (Redis connected / in-memory fallback) | Muskan | Commit 30 |
+| 1 | Update `.env.example` with all Sprint 3 vars (Razorpay, Email) | Shruti | Start of Sprint 4 |
+| 2 | Add queueService startup health log (workers ready) | Muskan | Commit 30 |
 | 3 | Write `docs/testing/manual-test-cases.md` with payment and Socket.IO test cases | Mitali | Commit 33 |

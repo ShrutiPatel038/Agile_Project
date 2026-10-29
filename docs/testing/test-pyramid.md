@@ -30,7 +30,7 @@
 
 E2E tests for EV-Go are slow (~20s per flow) because:
 1. The Razorpay Checkout opens in an iframe — Playwright must interact with it via test credentials.
-2. Socket.IO events need the full stack (Redis, backend, frontend) running.
+2. Socket.IO events need the full stack (MongoDB, backend, frontend) running.
 3. The MongoDB replica set needs ~10s to initialise.
 
 Unit + integration tests catch 90% of regressions at a fraction of the time. E2E covers the happy path and the two most failure-prone flows.

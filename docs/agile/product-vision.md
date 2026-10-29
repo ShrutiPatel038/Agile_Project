@@ -23,7 +23,7 @@
 2. **Trustworthy payments.** A user who pays always ends up with a confirmed booking or a refund, even if the browser closes mid-payment.
 3. **Fast station operations.** A station master can start or end a ride in a single action from their dashboard.
 4. **Live visibility.** Booking, payment and ride changes reach the affected user, station and super admin without a page refresh.
-5. **Graceful degradation.** If Redis goes down, the app keeps working, with caching, email and timeouts falling back to in-memory, inline and cron paths.
+5. **Minimal infrastructure.** The app needs only Node and MongoDB. Caching, background jobs and real-time updates run in memory, and cron jobs act as a safety net for timers lost on restart.
 
 ## Success measures
 
@@ -31,7 +31,7 @@
 |---|---|
 | Double bookings for overlapping slots | 0 |
 | Paid bookings left without confirmation or refund | 0 |
-| Unpaid bookings released after the payment deadline | ≤ 1 minute late (cron fallback), exact time with BullMQ |
+| Unpaid bookings released after the payment deadline | Exact time (in-process timer); ≤ 1 minute late after a restart (cron fallback) |
 | Time for a station master to start or end a ride | < 30 seconds |
 | CI pipeline on every push to `main` | Lint + build green before merge |
 

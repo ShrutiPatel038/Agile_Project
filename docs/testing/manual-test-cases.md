@@ -23,7 +23,7 @@
 |---|---|---|---|---|
 | MT-06 | EVG-29 | SA creates station | POST `/super-admin/stations` `{name, address, coordinates, totalSlots}` | 201 · station object returned |
 | MT-07 | EVG-30 | SA adds vehicle to station | POST `/super-admin/vehicles` `{stationId, modelName, pricePerHour, ...}` | 201 · vehicle with `status: available` |
-| MT-08 | EVG-27 | Public station list (cache miss) | GET `/public/stations` (first call) | 200 · array of stations · Redis now holds `public:stations` |
+| MT-08 | EVG-27 | Public station list (cache miss) | GET `/public/stations` (first call) | 200 · array of stations · backend log shows `Cache Miss`; a second call within 1 h logs `Cache Hit` (in-memory `public:stations`) |
 | MT-09 | EVG-27 | Public station list (cache hit) | GET `/public/stations` again within 1h | Same result · response time < first call |
 | MT-10 | EVG-28 | Vehicle availability check | GET `/public/vehicles/:stationId/available?start=&end=` | Returns vehicles not overlapping the window |
 
@@ -92,4 +92,17 @@
 | ID | Story | Scenario | Steps | Expected result |
 |---|---|---|---|---|
 | MT-34 | EVG-44 | Get analytics (cache miss) | GET `/super-admin/analytics` (first call, cold cache) | 200 · `{financials, fleet, loyaltyTiers, topStations, monthlyRevenue, support}` |
-| MT-35 | EVG-44 | Get analytics (cache hit) | GET `/super-admin/analytics` again within 12h | Same result · faster response (Redis cache hit) |
+| MT-35 | EVG-44 | Get analytics (cache hit) | GET `/super-admin/analytics` again within 12h | Same result · faster response (in-memory cache hit) |
+
+---
+
+## Multi-role local testing (EVG-24)
+
+Setup: `cd backend && npm run dev`, then `cd frontend && npm run dev:roles` (user :5173, station master :5174, super admin :5175).
+
+| ID | Story | Scenario | Steps | Expected result |
+|---|---|---|---|---|
+| MT-36 | EVG-24 | Three roles logged in at once | Log in as `user1` on :5173, `master2` on :5174, `sadmin` on :5175 in the same browser, then reload all three tabs | Each tab keeps its own role: :5173 → `/profile`, :5174 → `/dashboard`, :5175 → `/super-admin` |
+| MT-37 | EVG-24 | Logout is per port | Log out on :5173, reload it, then reload :5174 and :5175 | :5173 stays on `/login` (token removed from localStorage); :5174 and :5175 are still logged in |
+| MT-38 | EVG-40 | Real-time across roles | On :5173 book a vehicle at master2's station | :5174 station dashboard refreshes without a page reload (`dashboard_refresh`) |
+| MT-39 | EVG-24 | Second backend instance | `npm run dev:second` in `backend/` | Log shows `Server running on port 5001` and `Cron jobs disabled on this instance (--no-jobs)`; GET `:5001/health` → 200 |

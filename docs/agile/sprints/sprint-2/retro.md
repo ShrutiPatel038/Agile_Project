@@ -31,7 +31,7 @@
 ## Continue
 
 - **Extracting pure utilities (pricingUtils, bookingValidationUtils)** — made the booking logic testable without a DB and kept `createBooking` readable. Continue this pattern for payment and refund logic.
-- **Lazy-importing queueService and Socket.IO** — the guarded imports (`if (req.io)`, lazy `getQueue()`) kept the server starting cleanly in Sprint 2 without Redis or BullMQ. Continue for Sprint 3 additions.
+- **Lazy-importing queueService and Socket.IO** — the guarded imports (`if (req.io)`, lazy `getQueue()`) kept the server starting cleanly in Sprint 2 before Socket.IO and the job timers were wired. Continue for Sprint 3 additions.
 - **One-sprint stub → replace cycle** — stubs (BookingModal, PaymentModal, notificationUtil) were replaced in the same sprint or the next one, so the history reads as incremental development. Continue this pattern.
 
 ---
@@ -42,4 +42,4 @@
 |---|---|---|---|
 | 1 | Add `seed.js` with one paid confirmed booking so SM dashboard demo works without DB surgery | Shruti | Sprint 3 Day 1 |
 | 2 | Run `npm run dev` locally during every frontend commit to catch CSS/rendering issues before lint | All | Sprint 3 (ongoing) |
-| 3 | Add Socket.IO and BullMQ to the per-commit verify checklist once Sprint 3 wires them | Muskan | Sprint 3 Day 1 |
+| 3 | Add Socket.IO and the job timers to the per-commit verify checklist once Sprint 3 wires them | Muskan | Sprint 3 Day 1 |

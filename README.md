@@ -21,8 +21,9 @@ This repository rebuilds EV-Go with Scrum and DevOps practices across four one-d
 | Frontend | React 19, Vite 7, Tailwind CSS |
 | Backend | Node.js 20, Express 5 |
 | Database | MongoDB 7 (Mongoose, replica set for transactions) |
-| Cache / queues | Redis, BullMQ |
-| Real-time | Socket.IO 4 + Redis adapter |
+| Cache | In-memory cache with TTL |
+| Background jobs | In-process timers + node-cron |
+| Real-time | Socket.IO 4 |
 | Payments | Razorpay |
 | Logging | Winston + Morgan |
 | CI | GitHub Actions |
@@ -52,14 +53,14 @@ docker compose down -v       # stop and wipe all volumes
 
 ## Local development (without Docker)
 
-**Prerequisites:** Node 20, MongoDB 7 (replica set), Redis
+**Prerequisites:** Node 20 and a MongoDB replica set (MongoDB Atlas works). No other services are needed.
 
 ```bash
 # Backend
 cd backend
 cp .env.example .env        # fill in secrets
 npm install
-node server.js
+npm run dev                  # http://localhost:5000
 
 # Frontend (separate terminal)
 cd frontend
@@ -67,10 +68,31 @@ npm install
 npm run dev                  # http://localhost:5173
 ```
 
+### Testing several roles at the same time
+
+Each browser origin (port) keeps its own login, so run one frontend port per role:
+
+```bash
+cd frontend
+npm run dev:roles            # user → :5173, station master → :5174, super admin → :5175
+```
+
+Or start them one at a time with `npm run dev:user`, `npm run dev:master` and `npm run dev:admin`. Log in with a different role on each port; logging in or out on one port does not affect the others.
+
+One backend serves all three ports, and real-time updates between roles need them on the same backend. To run an extra backend anyway:
+
+```bash
+cd backend
+npm run dev:second           # port 5001, cron jobs disabled so they don't run twice
+# any port: node server.js --port=5002 --no-jobs
+```
+
+To point a frontend at it, set `VITE_API_URL` before starting Vite (PowerShell: `$env:VITE_API_URL="http://localhost:5001"; npm run dev:admin`). Real-time events do not cross between backends, because each one runs its own in-memory Socket.IO server.
+
 ## Repository layout
 
 ```
-backend/          Express API, BullMQ workers, cron jobs, Winston logger
+backend/          Express API, job timers, cron jobs, Winston logger
 frontend/         React SPA (Vite, Tailwind)
 docs/
   agile/          Vision, backlog, user stories, story map, sprint docs, JIRA import

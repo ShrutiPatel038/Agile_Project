@@ -11,14 +11,13 @@ graph TD
     Internet["🌐 Internet"]
     Ingress["Ingress Controller\n(nginx-ingress)"]
     FE["Deployment: frontend\n2 replicas\nnginx:alpine"]
-    BE["Deployment: backend\n3 replicas\nevgo-backend:latest"]
+    BE["Deployment: backend\n1 replica (Recreate)\nevgo-backend:latest"]
     Mongo["StatefulSet: mongodb\n3-node replica set (rs0)"]
-    Redis["Deployment: redis\n1 replica (sentinel optional)"]
     PVC_Mongo[("PVC: mongo-data")]
     PVC_Uploads[("PVC: backend-uploads")]
     ConfigMap["ConfigMap: evgo-config\nNODE_ENV, LOG_LEVEL, PORT"]
     Secret["Secret: evgo-secrets\nJWT, Razorpay, Email, DB creds"]
-    HPA["HPA: backend\nmin 2 / max 10\nCPU target 70%"]
+    HPA["HPA: frontend\nmin 2 / max 10\nCPU target 70%"]
 
     Internet --> Ingress
     Ingress -->|"/* SPA fallback"| FE
@@ -26,12 +25,11 @@ graph TD
     Ingress -->|"/socket.io/"| BE
     FE --> BE
     BE --> Mongo
-    BE --> Redis
     Mongo --> PVC_Mongo
     BE --> PVC_Uploads
     BE --> ConfigMap
     BE --> Secret
-    HPA --> BE
+    HPA --> FE
 ```
 
 ---
@@ -56,7 +54,9 @@ metadata:
   name: backend
   namespace: evgo
 spec:
-  replicas: 3
+  replicas: 1            # cache, job timers and Socket.IO rooms are in memory — see below
+  strategy:
+    type: Recreate       # never run two backend pods at once (cron jobs would run twice)
   selector:
     matchLabels:
       app: backend
@@ -102,13 +102,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: backend-hpa
+  name: frontend-hpa
   namespace: evgo
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: backend
+    name: frontend
   minReplicas: 2
   maxReplicas: 10
   metrics:
@@ -159,9 +159,17 @@ spec:
 
 ---
 
-## Why the Socket.IO adapter matters in Kubernetes
+## Why the backend runs as a single pod
 
-With 3 backend pods, a socket.io `emit` on pod-1 would not reach a client connected to pod-2 without the Redis adapter. The `@socket.io/redis-adapter` configured in `server.js` publishes events to Redis pub/sub, which broadcasts to all pods. This is the reason a Redis deployment is required even when BullMQ is not used.
+The backend keeps three things in process memory: the cache (`cacheService.js`), the per-booking job timers (`queueService.js`), and the Socket.IO rooms. With 3 backend pods:
+
+- a Socket.IO `emit` on pod-1 would not reach a client connected to pod-2, so station masters could miss `dashboard_refresh` events;
+- every pod would run the cron jobs, so expired bookings would be processed and notified more than once;
+- each pod would have its own cache.
+
+So the plan uses **one backend replica** with the `Recreate` strategy, and only the stateless frontend autoscales. The backend scales vertically by raising its CPU and memory limits. Running several backend pods would first need a shared Socket.IO adapter, a shared cache, and a persistent job queue.
+
+The `/socket.io` ingress path works with a single backend pod. With more pods it would also need sticky sessions, because the polling transport makes several HTTP requests per connection.
 
 ---
 

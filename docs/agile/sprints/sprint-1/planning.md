@@ -84,7 +84,7 @@ Sprint 1 is heavier on process work than later sprints (Agile artefacts, JIRA se
 - [ ] Scaffold Express 5 app in `backend/`; add `GET /health` endpoint
 - [ ] Add `backend/utils/logger.js` (Winston: JSON+file in prod, console in dev)
 - [ ] Wire Morgan through Winston for HTTP logs
-- [ ] Connect MongoDB (Mongoose) and Redis (ioredis) — log connect / disconnect events
+- [ ] Connect MongoDB (Mongoose) — log connect / disconnect events
 - [ ] Load env from `.env`; create `backend/.env.example` with all required keys
 
 ### EVG-22 — CI pipeline (Shruti, ~45 min)
@@ -124,7 +124,7 @@ All committed stories pass DoR:
 - [x] Given/When/Then acceptance criteria written
 - [x] Estimated (≤ 8 SP) and MoSCoW priority set
 - [x] Dependencies: EVG-21 (backend scaffold) before EVG-23 (auth); EVG-23 before EVG-24. EVG-22 CI can go in parallel.
-- [x] External setup known: no Razorpay or payments this sprint; only MongoDB + Redis needed
+- [x] External setup known: no Razorpay or payments this sprint; only MongoDB needed
 - [x] Each story has tasks ≤ 2 h above
 
 ---

@@ -13,7 +13,7 @@
 
 ## Sprint goal
 
-> **Make the money work and the system live:** integrate Razorpay payments (create-order, verify, webhook), add Socket.IO real-time notifications, wire BullMQ background jobs (email, payment timeout, overtime), and add engagement features (loyalty, reviews, favorites, notifications, OTP).
+> **Make the money work and the system live:** integrate Razorpay payments (create-order, verify, webhook), add Socket.IO real-time notifications, wire background jobs (email, payment timeout, overtime), and add engagement features (loyalty, reviews, favorites, notifications, OTP).
 
 ---
 
@@ -39,7 +39,7 @@ Sprint 2 velocity: 35 SP in 13.5 dev h → ~2.6 SP/h. Targeting 32–35 SP this 
 | EVG-39 | Security deposit lifecycle | 3 | Must Have | Shruti |
 | EVG-40 | Webhook idempotency + unlinked payment recovery | 3 | Must Have | Shruti |
 | EVG-41 | Real-time ride and payment updates (Socket.IO) | 5 | Must Have | Muskan |
-| EVG-42 | Email notifications (BullMQ + NodeMailer) | 3 | Should Have | Mitali |
+| EVG-42 | Email notifications (NodeMailer + PDF invoice) | 3 | Should Have | Mitali |
 | EVG-43 | Payment timeout and overtime background jobs | 5 | Must Have | Muskan |
 | EVG-44 | Cron watchdog jobs | 2 | Should Have | Muskan |
 | EVG-45 | Loyalty points system | 3 | Should Have | Mitali |
@@ -67,11 +67,10 @@ Sprint 2 velocity: 35 SP in 13.5 dev h → ~2.6 SP/h. Targeting 32–35 SP this 
 ### EVG-41 — Socket.IO (Muskan, ~1.5h)
 - [ ] `backend/server.js`: attach `http.createServer` + `io` instance
 - [ ] `socketAuth.js` middleware
-- [ ] Redis adapter (`socket.io-redis`)
 - [ ] `req.io` injected via middleware
 - [ ] `frontend/src/context/SocketContext.jsx` + wrap in `main.jsx`
 
-### EVG-42/43/44 — BullMQ workers + cron (Muskan + Mitali, ~2h)
+### EVG-42/43/44 — Job timers + cron (Muskan + Mitali, ~2h)
 - [ ] `services/queueService.js` (emailQueue, paymentTimeoutQueue, overtimeQueue)
 - [ ] `jobs/emailWorker.js` + PDF invoice (`invoiceService.js`)
 - [ ] `jobs/paymentTimeoutWorker.js`
@@ -95,6 +94,6 @@ Sprint 2 velocity: 35 SP in 13.5 dev h → ~2.6 SP/h. Targeting 32–35 SP this 
 - Payment flow: `createOrder` → Razorpay Checkout → `verifyPayment` completes booking → `paymentStatus: completed`.
 - Webhook: raw body preserved, HMAC verified, idempotent on duplicate events.
 - Socket.IO: user receives `notification` event on booking status change.
-- BullMQ workers start with the server and process jobs from Redis queues.
+- Job timers are scheduled per booking, and the cron jobs start with the server.
 - Cron watchdog runs at startup and cancels unpaid bookings past their deadline.
 - All new endpoints pass `npm run lint`.

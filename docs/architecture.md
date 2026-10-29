@@ -6,41 +6,45 @@
 graph TD
     Browser["Browser\n(React + Vite)"]
     Nginx["Nginx\n(frontend container)"]
-    BE["Express 5 API\n(backend container)"]
+    BE["Express 5 API + Socket.IO\n(backend container)"]
+    Jobs["In-process jobs\n(payment timeout · overtime timers)"]
+    Cache["In-memory cache\n(stations · analytics)"]
     Mongo["MongoDB\n(replica set rs0)"]
-    Redis["Redis"]
-    BullMQ["BullMQ workers\n(email · timeout · overtime)"]
-    Cron["Cron watchdogs\n(10 min · 3 h)"]
+    Cron["Cron jobs\n(1 min · 5 min · 10 min · 3 h)"]
     Razorpay["Razorpay\n(external)"]
     Email["SMTP / Email\n(external)"]
 
-    Browser -->|"HTTPS / WS"| Nginx
-    Nginx -->|"/api/* · /socket.io/*\nproxy_pass"| BE
-    Nginx -->|"/* SPA fallback"| Browser
+    Browser -->|"static SPA"| Nginx
+    Browser -->|"REST /api/* · WebSocket /socket.io/*"| BE
     BE -->|"Mongoose + transactions"| Mongo
-    BE -->|"ioredis: cache · Socket.IO adapter"| Redis
-    BE -->|"BullMQ: enqueue jobs"| Redis
-    Redis -->|"dequeue"| BullMQ
-    BullMQ -->|"nodemailer + PDFKit"| Email
+    BE --- Cache
+    BE -->|"schedule / cancel timers"| Jobs
+    Jobs -->|"cancel unpaid · bill overtime"| Mongo
+    BE -->|"nodemailer + PDFKit invoice"| Email
     BE -->|"create order · verify HMAC · webhook"| Razorpay
-    Cron -->|"cancel expired bookings\nwarm analytics cache"| Mongo
-    Cron --> Redis
+    Cron -->|"expire unpaid bookings\nwarm analytics cache"| Mongo
 ```
+
+The cache, job timers and Socket.IO rooms all live inside the single backend process. There is no separate cache or message-queue service: the app needs only Node and MongoDB.
+
+In Docker Compose the browser loads the SPA from Nginx on `:5173` and calls the API on `:5000` (`VITE_API_URL=http://localhost:5000` is baked into the build). `nginx.conf` also proxies `/api/` and `/socket.io/` to `backend:5000` for deployments that serve both from one origin.
 
 ## Booking state machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending_confirmation : POST /bookings\n(vehicle reserved)
-    pending_confirmation --> confirmed : payment_status = completed\n(verify or webhook)
-    pending_confirmation --> cancelled : payment deadline exceeded\n(cron or timeout worker)
-    confirmed --> active : SM starts ride
+    [*] --> confirmed : POST /bookings\n(vehicle reserved, paymentStatus = pending)
+    confirmed --> confirmed : payment verified or webhook\n(paymentStatus = completed, deposit held)
+    confirmed --> cancelled : payment deadline passed\n(timer or 1-min cron)
+    confirmed --> active : SM starts ride\n(overtime timer scheduled)
     active --> completed : SM completes ride\n(overtime settled)
     confirmed --> cancelled : user or SM cancels\n(refund calculated)
-    active --> cancelled : SM cancels active\n(security deposit logic)
+    active --> cancelled : SM cancels active ride
     completed --> [*]
     cancelled --> [*]
 ```
+
+A new booking is `confirmed` with `paymentStatus: 'pending'`. It must be paid within 30 minutes (or 2 hours if the ride starts 12+ hours ahead), otherwise it is cancelled and the vehicle is released.
 
 ## CI pipeline
 
@@ -65,35 +69,39 @@ The `docker` job needs both `backend` and `frontend` to pass first (`needs: [bac
 
 ```
 backend/
-├── server.js          entry point: Express app, http.Server, Socket.IO, DB/Redis connect
+├── server.js          entry point: dotenv, Express app, http.Server, Socket.IO, jobs; --port / --no-jobs options
+├── seeder.js          npm run data:import / data:destroy (wipes the DB first)
 ├── config/
-│   └── env.js         dotenv load + export validated env vars (imported first in server.js)
-├── controllers/       one file per domain (auth, booking, payment, refund, stationMaster, …)
-├── middleware/        protectRoute, stationMaster, superAdmin, socketAuth, rateLimiters
+│   └── db.js          MongoDB connection with retry
+├── controllers/       one file per domain (auth, booking, payment, refund, stationMaster, superAdmin, …)
+├── middleware/        protectRoute, stationMaster, superAdmin, socketAuth, rate limiters
 ├── models/            Mongoose schemas (User, Station, Vehicle, Booking, Notification, …)
 ├── routes/            Express routers (mounted in server.js)
 ├── services/
-│   ├── cacheService.js   Redis + in-memory Map fallback; get/set/del/invalidatePattern
-│   └── queueService.js   BullMQ queues (emails, paymentTimeout, overtime); inline fallback
+│   ├── cacheService.js   in-memory Map with TTL; get/set/del/clear
+│   ├── queueService.js   setTimeout job timers (payment timeout, overtime); inline email
+│   └── invoiceService.js PDFKit invoice
 ├── jobs/
-│   ├── emailWorker.js
-│   ├── paymentTimeoutWorker.js
-│   ├── overtimeWorker.js
-│   └── cronJobs.js
+│   ├── paymentTimeoutWorker.js  processPaymentTimeout()
+│   ├── overtimeWorker.js        processOvertimeCheck()
+│   ├── emailWorker.js           startup log only
+│   ├── paymentTimeout.js        every-minute payment reminder + expiry cron
+│   └── cronJobs.js              stuck/unlinked payments, analytics cache warming
 └── utils/
-    ├── logger.js         Winston (colored console dev / JSON+file prod)
-    ├── pricingUtils.js   calculateRentalCost, calculateSecurityDeposit, calculateOvertimeRate
-    └── bookingValidationUtils.js  validateBookingTimes, calculatePaymentDeadline
+    └── logger.js         Winston (colored console dev / JSON+file prod)
 ```
+
+Booking pricing and validation are inline in `controllers/bookingController.js`.
 
 ## Key design decisions
 
 | Decision | Reason |
 |---|---|
 | MongoDB replica set in Compose | `createBooking` uses multi-document transactions; standalone Mongo rejects `startSession()` |
-| Webhook mounted before `express.json()` | Razorpay HMAC uses the raw request body; `express.json()` would re-encode it |
-| `global.io` pattern | Workers and cron jobs (no `req` context) need to emit Socket.IO events |
-| BullMQ inline fallback | When Redis is unavailable at startup, jobs run synchronously so bookings still function |
-| `@socket.io/redis-adapter` | Enables horizontal scaling — any pod can emit to any connected socket |
+| Webhook path gets `express.raw()` before `express.json()` | Razorpay HMAC uses the raw request body; `express.json()` would re-encode it |
+| `global.io` pattern | Job timers and cron jobs (no `req` context) need to emit Socket.IO events |
+| No external cache or job queue | The app runs with only Node and MongoDB. Cache, job timers and Socket.IO rooms are in memory, so it runs as one backend instance |
+| Cron as safety net for timers | Timers are lost on restart; the every-minute cron still cancels expired unpaid bookings |
+| Bearer token from `localStorage` only (`withCredentials: false`) | Each frontend port keeps its own session, so several roles can be tested at once |
 | Single-node replica set (`rs0`) | Full transaction support in Docker Compose with zero operational overhead |
-| Non-root Docker user (`evgo`) | CIS Docker benchmark; image runs with UID 1001, not root |
+| Non-root Docker user (`evgo`) | CIS Docker benchmark; the container does not run as root |

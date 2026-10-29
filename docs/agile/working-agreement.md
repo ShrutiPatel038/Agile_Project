@@ -54,7 +54,7 @@ The morning planning replaces the first daily stand-up, and the mid-day sync is 
 - [ ] Its acceptance criteria are in Given/When/Then form in [user-stories.md](user-stories.md).
 - [ ] It's estimated (≤ 8 SP) and has a MoSCoW priority.
 - [ ] Its dependencies are done or in the same sprint. For example, EVG-37 Payment needs EVG-33 Booking.
-- [ ] Any external setup it needs is known: Razorpay test keys, a Gmail app password, a Redis or Mongo instance.
+- [ ] Any external setup it needs is known: Razorpay test keys, a Gmail app password, a MongoDB replica set (e.g. Atlas).
 - [ ] The team understands it well enough to break it into tasks of 2 h or less.
 
 ## 6. Definition of Done (a story is Done when…)

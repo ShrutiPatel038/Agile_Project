@@ -112,5 +112,5 @@ These items were discussed and deliberately left out. They have no JIRA keys yet
 
 - **EVG-33** is the riskiest story (concurrency + transactions). It's split into technical tasks in the Sprint 2 planning.
 - **EVG-38** depends on the webhook receiving the raw request body. This has to be checked before any JSON body parser runs (`express.raw()` on `/api/payments/webhook` only).
-- **EVG-42** and **EVG-43** depend on Redis for exact timing. Their acceptance criteria include the cron fallback for when Redis is down.
+- **EVG-42** and **EVG-43** use in-process timers for exact timing. Timers are lost when the backend restarts, so EVG-42 also has an every-minute cron fallback. EVG-43 has no fallback yet (known gap).
 - Engagement stories (EVG-45 to EVG-49) are **Could**. If Sprint 3 overruns, they're the first to drop or move.

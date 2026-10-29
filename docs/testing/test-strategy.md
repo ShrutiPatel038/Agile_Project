@@ -103,7 +103,7 @@ test('refund is 50% when cancellation is 8h before start', () => {
 
 - Route handlers (depend on `req`, `res`, DB)
 - Controllers with Mongoose calls
-- BullMQ workers (depend on Redis)
+- Job timer callbacks in `jobs/` (depend on MongoDB and real timers)
 
 ---
 
@@ -140,9 +140,9 @@ Tool: **Playwright** (headless Chromium)
 
 ## 7. Test environment
 
-| Environment | Database | Redis | Notes |
-|---|---|---|---|
-| Unit | None (mocked) | None | Fast; pure logic only |
-| Integration | mongodb-memory-server | ioredis-mock | No external services |
-| E2E | Docker Compose stack | Docker Redis | Full app running |
-| Manual | Local Docker Compose | Local Docker Redis | Testers run `docker compose up` |
+| Environment | Database | Notes |
+|---|---|---|
+| Unit | None (mocked) | Fast; pure logic only |
+| Integration | mongodb-memory-server (replica set mode) | No external services; the app needs only MongoDB |
+| E2E | Docker Compose stack | Full app running |
+| Manual | Local dev (`npm run dev:roles`) or Docker Compose | One frontend port per role for multi-role scenarios |

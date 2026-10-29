@@ -14,21 +14,23 @@ Winston + Morgan are already wired in the codebase.
 |---|---|---|
 | Server start | `info` | port, NODE_ENV |
 | MongoDB connected | `info` | host |
-| Redis connected | `info` | host |
 | HTTP request | `http` (Morgan) | method, url, status, response time |
 | Booking created | `info` | bookingId, userId, vehicleId, stationId, totalCost |
 | Booking cancelled | `info` | bookingId, reason |
 | Payment verified | `info` | bookingId, razorpayOrderId (no payment payload) |
 | Payment failed | `warn` | bookingId, error message |
 | Webhook received | `info` | event type only (no payload) |
-| BullMQ job done | `info` | queue, jobId, name |
-| BullMQ job failed | `error` | queue, jobId, error message |
+| Job scheduled (payment timeout / overtime) | `info` | bookingId, minutes until it fires |
+| Job completed | `info` | jobId |
+| Job failed | `error` | jobId, error message |
 | Cron result | `info` | job name, count affected |
 | Global error handler | `error` | message, stack |
 
 **Never logged:** passwords, JWTs, full payment payloads, Razorpay secrets, card numbers.
 
-Log files: `logs/app.log` (all levels), `logs/error.log` (error only). Both in `.gitignore`.
+Log files (production): `backend/logs/app.log` (all levels), `backend/logs/error.log` (error only). Both in `.gitignore`.
+
+> Many controllers restored from the original project still use `console.log` / `console.error`. Those lines reach the container stdout but not the Winston log files; moving them to `logger` is a known to-do.
 
 ---
 
@@ -44,8 +46,9 @@ Log files: `logs/app.log` (all levels), `logs/error.log` (error only). Both in `
 | `http_requests_total` | Counter | method, route, status | 5xx rate > 1% |
 | `booking_created_total` | Counter | — | — (informational) |
 | `payment_verified_total` | Counter | status (success/fail) | fail rate > 5% |
-| `bullmq_job_duration_seconds` | Histogram | queue | p95 > 30s |
-| `bullmq_job_failures_total` | Counter | queue | > 10/min |
+| `job_duration_seconds` | Histogram | job (payment_timeout, overtime, email) | p95 > 30s |
+| `job_failures_total` | Counter | job | > 10/min |
+| `pending_job_timers` | Gauge | job | — (informational; drops to 0 after a restart) |
 | `active_socket_connections` | Gauge | — | > 500 |
 
 ### Infrastructure metrics (CloudWatch / node-exporter)
@@ -55,7 +58,7 @@ Log files: `logs/app.log` (all levels), `logs/error.log` (error only). Both in `
 | CPU utilisation (ECS task) | > 80% for 5 min |
 | Memory usage (ECS task) | > 85% |
 | MongoDB connections | > 80% of pool |
-| Redis memory | > 80% of max |
+| Backend process heap (cache + timers live in memory) | > 80% of container limit |
 
 ---
 
@@ -65,7 +68,7 @@ Log files: `logs/app.log` (all levels), `logs/error.log` (error only). Both in `
 |---|---|---|---|
 | payment_verified_total fail rate > 5% | Critical | PagerDuty + Slack #alerts | On-call dev |
 | 5xx rate > 1% sustained 5 min | High | Slack #alerts | On-call dev |
-| BullMQ email worker failures > 10/min | High | Slack #alerts | On-call dev |
+| Confirmation email failures > 10/min | High | Slack #alerts | On-call dev |
 | MongoDB replica set primary step-down | Critical | PagerDuty | On-call dev |
 | CPU > 80% 5 min | Medium | Slack #infra | Team |
 | Cron job: 0 bookings cancelled in 1h (expected > 0) | Low | Slack #infra | Team |
@@ -85,14 +88,14 @@ Log files: `logs/app.log` (all levels), `logs/error.log` (error only). Both in `
 
 - HTTP request rate and p95 latency (line chart)
 - 5xx rate (gauge, green < 0.1%, red > 1%)
-- BullMQ queue depth (line chart)
+- Pending job timers (line chart)
 - Socket.IO active connections (gauge)
 
 ### Dashboard 3: Infrastructure
 
 - ECS CPU and memory per task
 - MongoDB connection pool utilisation
-- Redis memory and hit rate
+- Backend heap usage and cache hit rate
 - Error log rate from CloudWatch Logs Insights
 
 ---
